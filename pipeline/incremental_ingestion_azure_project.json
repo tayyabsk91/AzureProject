@@ -24,7 +24,7 @@
 				"type": "Copy",
 				"dependsOn": [
 					{
-						"activity": "max_cdc",
+						"activity": "max_cdc_copy1",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -98,13 +98,13 @@
 				"type": "Copy",
 				"dependsOn": [
 					{
-						"activity": "current_timestamp",
+						"activity": "last_cdc",
 						"dependencyConditions": [
 							"Succeeded"
 						]
 					},
 					{
-						"activity": "last_cdc",
+						"activity": "current_timestamp",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -169,42 +169,6 @@
 				]
 			},
 			{
-				"name": "max_cdc",
-				"type": "Script",
-				"dependsOn": [
-					{
-						"activity": "azuresql_to_datalakeadls",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"linkedServiceName": {
-					"referenceName": "AzureSqlDatabase1",
-					"type": "LinkedServiceReference"
-				},
-				"typeProperties": {
-					"scripts": [
-						{
-							"type": "Query",
-							"text": {
-								"value": "select max(@{pipeline().parameters.cdc_col}) as cdc from @{pipeline().parameters.schema}.@{pipeline().parameters.table}",
-								"type": "Expression"
-							}
-						}
-					],
-					"scriptBlockExecutionTimeout": "02:00:00"
-				}
-			},
-			{
 				"name": "last_cdc",
 				"type": "Lookup",
 				"dependsOn": [],
@@ -237,6 +201,42 @@
 							"file": "cdc.json"
 						}
 					}
+				}
+			},
+			{
+				"name": "max_cdc_copy1",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "azuresql_to_datalakeadls",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "AzureSqlDatabase1",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": {
+								"value": "select max(@{pipeline().parameters.cdc_col}) as cdc from @{pipeline().parameters.schema}.@{pipeline().parameters.table}",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
 				}
 			}
 		],
