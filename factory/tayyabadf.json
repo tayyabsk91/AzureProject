@@ -1,0 +1,9 @@
+{
+	"name": "tayyabadf",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "cf484e0c-0a8f-4e3f-942f-f313aad1715d",
+		"tenantId": "eb92261e-4d12-48b1-92d3-84a49b881822"
+	}
+}

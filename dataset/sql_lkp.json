@@ -1,0 +1,17 @@
+{
+	"name": "sql_lkp",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase1",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "Departments"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

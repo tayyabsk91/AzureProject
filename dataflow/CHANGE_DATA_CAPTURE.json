@@ -1,0 +1,134 @@
+{
+	"name": "CHANGE_DATA_CAPTURE",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "cdc_Dataset",
+						"type": "DatasetReference"
+					},
+					"name": "csvNewData"
+				},
+				{
+					"dataset": {
+						"referenceName": "cdc_sql",
+						"type": "DatasetReference"
+					},
+					"name": "sqlExistingData"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "sql_sink",
+						"type": "DatasetReference"
+					},
+					"name": "sinkSQLUpsertChanges"
+				}
+			],
+			"transformations": [
+				{
+					"name": "addHashCSV"
+				},
+				{
+					"name": "addHashSQL"
+				},
+				{
+					"name": "standardizeClmsCsv"
+				},
+				{
+					"name": "standardizeClmsSql"
+				},
+				{
+					"name": "leftJoinCSVvsSQL"
+				},
+				{
+					"name": "FlagChanges"
+				},
+				{
+					"name": "detectInsertnUpdate"
+				},
+				{
+					"name": "cleanColumns"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          ID as integer,",
+				"          Name as string,",
+				"          Gender as string,",
+				"          Salary as integer",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> csvNewData",
+				"source(output(",
+				"          id as integer,",
+				"          name as string,",
+				"          gender as string,",
+				"          salary as integer",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> sqlExistingData",
+				"standardizeClmsCsv derive(hashColumn1 = sha2(256, columns())) ~> addHashCSV",
+				"standardizeClmsSql derive(hashColumn2 = sha2(256, columns())) ~> addHashSQL",
+				"csvNewData select(mapColumn(",
+				"          leftID = ID,",
+				"          Name,",
+				"          Gender,",
+				"          Salary",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> standardizeClmsCsv",
+				"sqlExistingData select(mapColumn(",
+				"          rightID = id,",
+				"          name,",
+				"          gender,",
+				"          salary",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> standardizeClmsSql",
+				"addHashCSV, addHashSQL join(leftID == rightID,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> leftJoinCSVvsSQL",
+				"leftJoinCSVvsSQL derive(hash_changed = iif(isNull(rightID), true(), hashColumn1 != hashColumn2)) ~> FlagChanges",
+				"FlagChanges alterRow(insertIf(isNull(rightID)),",
+				"     updateIf(hash_changed==true()&&!isNull(rightID))) ~> detectInsertnUpdate",
+				"detectInsertnUpdate select(mapColumn(",
+				"          id = leftID,",
+				"          name = standardizeClmsCsv@Name,",
+				"          gender = standardizeClmsCsv@Gender,",
+				"          salary = standardizeClmsCsv@Salary,",
+				"          hashcolumn = hashColumn1",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> cleanColumns",
+				"cleanColumns sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:true,",
+				"     upsertable:true,",
+				"     keys:['id'],",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 1,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          id,",
+				"          name,",
+				"          gender,",
+				"          salary,",
+				"          hashcolumn",
+				"     )) ~> sinkSQLUpsertChanges"
+			]
+		}
+	}
+}

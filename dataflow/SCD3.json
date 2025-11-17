@@ -1,0 +1,148 @@
+{
+	"name": "SCD3",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "scd3",
+						"type": "DatasetReference"
+					},
+					"name": "adlssource"
+				},
+				{
+					"dataset": {
+						"referenceName": "scd3bro",
+						"type": "DatasetReference"
+					},
+					"name": "sqlsource"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "scd3bro",
+						"type": "DatasetReference"
+					},
+					"name": "sinkinsertdim"
+				},
+				{
+					"dataset": {
+						"referenceName": "scd3bro",
+						"type": "DatasetReference"
+					},
+					"name": "sinkupdatedim"
+				}
+			],
+			"transformations": [
+				{
+					"name": "selectdimcols"
+				},
+				{
+					"name": "leftjoin"
+				},
+				{
+					"name": "Matched"
+				},
+				{
+					"name": "selectnewcols"
+				},
+				{
+					"name": "prepareupdatedrecords"
+				},
+				{
+					"name": "selectupdatedcols"
+				},
+				{
+					"name": "markrowsforupdate"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          id as integer,",
+				"          name as string,",
+				"          city as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> adlssource",
+				"source(output(",
+				"          id as integer,",
+				"          name as string,",
+				"          city as string,",
+				"          city_old as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> sqlsource",
+				"sqlsource select(mapColumn(",
+				"          db_id = id,",
+				"          db_city = city",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectdimcols",
+				"adlssource, selectdimcols join(id == db_id,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> leftjoin",
+				"leftjoin split(!isNull(db_id),",
+				"     disjoint: false) ~> Matched@(Matched, NotMatched)",
+				"Matched@NotMatched select(mapColumn(",
+				"          id,",
+				"          name,",
+				"          city",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectnewcols",
+				"Matched@Matched derive(city_old = db_city) ~> prepareupdatedrecords",
+				"prepareupdatedrecords select(mapColumn(",
+				"          id,",
+				"          name,",
+				"          city,",
+				"          city_old",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectupdatedcols",
+				"selectupdatedcols alterRow(updateIf(1==1)) ~> markrowsforupdate",
+				"selectnewcols sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          id as integer,",
+				"          name as string,",
+				"          city as string,",
+				"          city_old as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 2,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sinkinsertdim",
+				"markrowsforupdate sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          id as integer,",
+				"          name as string,",
+				"          city as string,",
+				"          city_old as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:false,",
+				"     updateable:true,",
+				"     upsertable:false,",
+				"     keys:['id'],",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 1,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sinkupdatedim"
+			]
+		}
+	}
+}
