@@ -166,7 +166,7 @@
 								},
 								"ifFalseActivities": [
 									{
-										"name": "delete_copy1",
+										"name": "delete",
 										"type": "Delete",
 										"dependsOn": [],
 										"policy": {
